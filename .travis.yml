@@ -1,0 +1,33 @@
+language: generic
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t edmorra/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true edmorra/react-test npm test
+
+after_success:
+  - docker build -t edmorra/multi-client ./client
+  - docker build -t edmorra/multi-nginx ./nginx
+  - docker build -t edmorra/multi-server ./server
+  - docker build -t edmorra/multi-worker ./worker
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  - docker push edmorra/multi-client
+  - docker push edmorra/multi-nginx
+  - docker push edmorra/multi-server
+  - docker push edmorra/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: 'us-east-1'
+  app: 'multi-docker'
+  env: 'Multidocker-env'
+  bucket_name: 'elasticbeanstalk-us-east-1-457926681863'
+  bucket_path: 'docker-multi'
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
